@@ -1,0 +1,40 @@
+This README for lab0 contains:
+	the include files and descriptions
+	smoke tests in "make check" command
+
+Include Files:
+	<stdio.h> - fprintf, stderr, perror
+	<errno.h> - perror
+	<unistd.h> - read, write, _exit, dup, dup2
+	<getopt.h> - getopt_long
+	<signal.h> - signal, SIGSEGV, SIG_ERR
+	<stdlib.h> - malloc, free
+	<sys/types.h> - open, according to man page
+	<sys/stat.h> - open, according to man page
+	<fcntl.h> - open, according to man page
+	<stdbool.h> - bool
+
+Smoke Tests:
+	Currently, make check is not implemented. Here are the test cases I plan to test.
+
+	// no input, no output, return 1
+	./lab0 --input=noexist1 --output=noexist2
+
+	// yes input, no output, return 0 
+	./lab0 --input=exist1 --output=noexist1 
+
+	// yes input, yes output, return 0
+	./lab0 --input=exist1 --output=exist2
+
+	// unable to create output file, return 2
+	./lab0 --input=exist1 --output
+
+	// switch options, return 0
+	./lab0 --output=exist1 --input=exist2
+
+	// segfault, no catch, goes to segfault
+	./lab0 --segfault
+
+	// segfault, yes catch, segfault is caught, return 3
+	./lab0 --segfault --catch
+	 

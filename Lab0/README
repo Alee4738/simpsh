@@ -1,0 +1,54 @@
+Andrew Lee 804621520 CS 111
+lab0 - print standard input to standard output
+
+---------------------
+Included Files:
+---------------------
+main.c - source code for lab0
+Makefile - builds lab0 and tarball
+seg.jpg - shows segfault and associated stacktrace
+break.jpg - shows breakpoint and variable inspection
+README - description of project
+
+---------------------
+Description:
+---------------------
+Usage: ./lab0 [--input <INPUTFILE>] [--output <OUTPUTFILE>] [--segfault] [--catch]
+	if input is specified, INPUTFILE is used instead of stdin
+	if output is specified, OUTPUTFILE is used instead of stdout
+	segfault results in following a null ptr
+	catch initializes a segfault handler
+Return codes:
+	0 - Success
+	1 - error opening input file
+	2 - error creating output file
+	3 - caught a segfault
+	4 - setting input/output file to stdin/stdout (dup2) failed
+	5 - read error
+	6 - write error
+	7 - memory allocation error
+	8 - option parsing error
+
+Notes:
+	if input/output options are specified multiple times, e.g. ./lab0 --input file1 --input file2, returns 8 and print usage
+
+---------------------
+Test Cases:
+---------------------
+# 1. check using regular stdin -> stdout, should return 0
+# 2. check that input and output flags work, should return 0
+#	check on an input file that doesn't exist, should return 0
+# 3. check segfault - grep-ing for "Segme" in command output
+# 4. check catch, should return 3 when segfault appears, else 0
+
+---------------------
+Sources:
+---------------------
+Outputing segmentation fault message to file:
+	http://unix.stackexchange.com/questions/53289/does-segmentation-fault-message-come-under-stderr
+And-ing bash if statements:
+	http://stackoverflow.com/questions/8920245/bash-conditionals-how-to-and-expressions-if-z-var-e-var
+Makefile silent remove:
+	http://stackoverflow.com/questions/3148492/suppress-messages-in-make-clean-makefile-silent-remove
+Running shell instance inside recipe
+	https://blog.melski.net/2010/11/15/shell-commands-in-gnu-make/
