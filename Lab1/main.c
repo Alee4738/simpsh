@@ -35,30 +35,17 @@ void print_usage()
 	printf("Usage: ./simpsh [--verbose] [--rdonly INPUTFILE] [--wronly OUTPUTFILE] [--command # # # COMMAND] where # are file descriptors for stdin, stdout, and stderr (file descriptors assigned from left to right)\n");
 }
 
-// TODO: make function
-void exec_cmd(const char* cmd, unsigned in, unsigned out, unsigned err, char** args)
-{
-	// TODO: fork
-	
-
-	// TODO: Change file descriptors
-	
-
-	// TODO: make string for exec function
-	
-	
-	// TODO: execute command
-}
-
 int main(int argc, char** argv)
 {
-	// Parse options
-	int ret, test_fd;
+	int ret, test_fd; // for parsing
 	bool verbose_on = false;
 	int num_files = 0; // file num (--command # # #) == num_files+3, meaning when a command asks for file num 0 as stdin, you give them file descriptor 3
-	char test_buf[100];
-	int tb_size = 0;
-	int i;
+
+	// For command processing
+	int size_count, in, out, err, arg_ind, num_args;
+	char** my_argv;
+	
+	// Parse the options
 	do 
 	{
 		test_fd = 0;
@@ -84,43 +71,46 @@ int main(int argc, char** argv)
 				break;
 
 			case COMMAND:
-				// Put relevent args for command in single string
-				i = optind - 1;
-				while (argv[i] != NULL && strstr(argv[i], "--") != argv[i] )
+				// Scan in file numbers, TODO: check not null, they're numbers, finally, that they're less than num_files
+				sscanf(optarg, "%d", &in);
+				sscanf(argv[optind], "%d", &out);
+				sscanf(argv[optind + 1], "%d", &err);
+				// TODO: sscanf failedx3
+
+				arg_ind = optind + 2; // account for file numbers
+				num_args = 0; // num of args we'll put into argv for execvp
+				while (argv[arg_ind] != NULL 
+					&& strstr(argv[arg_ind], "--") != argv[arg_ind])
 				{
-					// copy argv[i] into test_buf
-					strcpy((char*)test_buf+tb_size, argv[i]);
-
-					// replace '\0' with ' '
-					while (test_buf[tb_size] != '\0')
-					{
-						tb_size++;
-					}
-					test_buf[tb_size] = ' ';
-					tb_size++; // we want to keep the space
-
-					// go to next argument
-					i++;
+					arg_ind++;
+					num_args++;
 				}
-				tb_size--; // we do not want to keep the last space
-				test_buf[tb_size] = '\0';
-				
+				// TODO: if (num_args == 0) missing command!
+				my_argv = malloc((num_args+1)*sizeof(char*));
+				// TODO: malloc failed
+				for (int j = 0; j < num_args; j++)
+				{	
+					my_argv[j] = argv[j+optind+2];
+				}	
+
+				// Verbose
 				if (verbose_on) {
-					printf("--command %s\n", test_buf);
+					printf("--command ");
+					printf("%d %d %d ", in, out, err);
+					int i;
+					for (i = 0; i < num_args-1; i++)
+					{
+						printf("%s ", my_argv[i]);
+					}
+					printf("%s\n", my_argv[i]);
 				}
 
-				// Execute command
+				// TODO: Fork
+				
+				// TODO: file descriptor editing
 
-				// Attempt to read in everything until you see "--"
-				/*
-				char lastChar = 0;
-				char currChar = 0;
-				while (lastChar != '-' && currChar != '-')
-				{
-					strncpy
-					tb_size++;
-				}
-				*/
+				// TODO: Execute command
+				// execvp(argv[0], argv);
 				break;
 
 			case VERBOSE:
@@ -135,19 +125,15 @@ int main(int argc, char** argv)
 
 		if (test_fd == -1) // could not open file
 		{
-			fprintf(stderr, "Failed open file \"%s\". Skipping option...\n", optarg);
+			fprintf(stderr, 
+			"Failed open file \"%s\". Skipping option...\n", optarg);
 		}
-
-		/* for_each command:
-		 *		if (verbose) print command
-		 *
-		 *
-		 */
 		else { num_files++; }
 
 	} while (ret != -1);
 
 	
+	// TODO: free my_argv
 	
 	exit(SUCCESS);
 }
