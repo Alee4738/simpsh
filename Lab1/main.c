@@ -110,7 +110,7 @@ int main(int argc, char** argv)
 				// TODO: file descriptor editing
 
 				// TODO: Execute command
-				// execvp(argv[0], argv);
+				execvp(my_argv[0], my_argv);
 				break;
 
 			case VERBOSE:
