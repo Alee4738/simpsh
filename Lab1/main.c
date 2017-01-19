@@ -13,6 +13,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <stdbool.h>
+#include <string.h>
 
 // Initialization
 #define SUCCESS 0
@@ -55,6 +56,9 @@ int main(int argc, char** argv)
 	int ret, test_fd;
 	bool verbose_on = false;
 	int num_files = 0; // file num (--command # # #) == num_files+3, meaning when a command asks for file num 0 as stdin, you give them file descriptor 3
+	char test_buf[100];
+	int tb_size = 0;
+	int i;
 	do 
 	{
 		test_fd = 0;
@@ -66,20 +70,63 @@ int main(int argc, char** argv)
 			// It should print diagnostic to stderr, then skip
 			// over rdonly, continue to parse options
 			case RDONLY:
-				printf("RDONLY option seen!\n");
+				if (verbose_on) {
+					printf("--rdonly %s\n", optarg);
+				}
 				test_fd = open(optarg, O_RDONLY);
 				break;
+
 			case WRONLY:
-				printf("WRONLY option seen!\n");
+				if (verbose_on) {
+					printf("--wronly %s\n", optarg);
+				}
 				test_fd = open(optarg, O_WRONLY);
 				break;
+
 			case COMMAND:
-				printf("COMMAND option seen!\n");
+				// Put relevent args for command in single string
+				i = optind - 1;
+				while (argv[i] != NULL && strstr(argv[i], "--") != argv[i] )
+				{
+					// copy argv[i] into test_buf
+					strcpy((char*)test_buf+tb_size, argv[i]);
+
+					// replace '\0' with ' '
+					while (test_buf[tb_size] != '\0')
+					{
+						tb_size++;
+					}
+					test_buf[tb_size] = ' ';
+					tb_size++; // we want to keep the space
+
+					// go to next argument
+					i++;
+				}
+				tb_size--; // we do not want to keep the last space
+				test_buf[tb_size] = '\0';
+				
+				if (verbose_on) {
+					printf("--command %s\n", test_buf);
+				}
+
+				// Execute command
+
+				// Attempt to read in everything until you see "--"
+				/*
+				char lastChar = 0;
+				char currChar = 0;
+				while (lastChar != '-' && currChar != '-')
+				{
+					strncpy
+					tb_size++;
+				}
+				*/
 				break;
+
 			case VERBOSE:
-				printf("VERBOSE option seen!\n");
 				verbose_on = true;
 				break;
+
 			case -1: break;
 			default:
 				print_usage();
