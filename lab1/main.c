@@ -55,7 +55,6 @@ int main(int argc, char** argv)
 		switch (ret)
 		{
 			case RDONLY:
-				
 				// errchk: missing operand and mistook next option as its arg
 				if (strstr(optarg, "--") == optarg) {
 					optind--; // fix indexing
@@ -121,7 +120,7 @@ int main(int argc, char** argv)
 					printf("%s\n", my_argv[i]);
 				}
 
-				// TODO: Fork
+				// Fork
 				pid_t forker = fork();
 				if (forker < 0) {
 					perror(NULL);
@@ -175,7 +174,6 @@ int main(int argc, char** argv)
 	} while (ret != -1);
 
 	
-	// TODO: free my_argv
 	if (has_command) {
 		free(my_argv);
 	}
