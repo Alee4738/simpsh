@@ -41,6 +41,8 @@ int main(int argc, char** argv)
 	int ret, test_fd; // for parsing
 	bool verbose_on = false;
 	int num_files = 0; // file num (--command # # #) == num_files+3, meaning when a command asks for file num 0 as stdin, you give them file descriptor 3
+	int exit_status = 0;
+	bool has_command = false;
 
 	// For command processing
 	int size_count, in, out, err, arg_ind, num_args;
@@ -72,6 +74,7 @@ int main(int argc, char** argv)
 				break;
 
 			case COMMAND:
+				has_command = true;
 				// Scan in file numbers, TODO: check not null, they're numbers, finally, that they're less than num_files
 				sscanf(optarg, "%d", &in);
 				sscanf(argv[optind], "%d", &out);
@@ -116,6 +119,13 @@ int main(int argc, char** argv)
 				}
 				else if (forker == 0) {
 					// File descriptor editing
+					if (in >= num_files // check valid file descriptors 
+					|| out >= num_files 
+					|| err >= num_files) {
+						fprintf(stderr, "Invalid file descriptor in \"--command %d %d %d %s...\"", in, out, err, my_argv[0]);
+						break;
+					}
+
 					dup2(in+3, 0);
 					dup2(out+3, 1);
 					dup2(err+3, 2);
@@ -125,25 +135,21 @@ int main(int argc, char** argv)
 					execvp(my_argv[0], my_argv);
 					// TODO: execvp failed
 				}
-				else {
-					wait(NULL);
-				}
+				// parent does nothing, not even wait
 				break;
 
 			case VERBOSE:
 				verbose_on = true;
 				break;
-
-			case -1: break;
-			default:
-				print_usage();
-				exit(PARSE_ERROR);
 		}
 
 		if (test_fd == -1) // could not open file
 		{
 			fprintf(stderr, 
 			"Failed open file \"%s\". Skipping option...\n", optarg);
+			if (!has_command && exit_status == 0) {
+				exit_status = 1;		
+			}
 		}
 		else { num_files++; }
 
@@ -152,5 +158,5 @@ int main(int argc, char** argv)
 	
 	// TODO: free my_argv
 	
-	exit(SUCCESS);
+	exit(exit_status);
 }
