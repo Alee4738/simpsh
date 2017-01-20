@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <unistd.h>
+#include <sys/wait.h>
 #include <getopt.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -75,7 +76,7 @@ int main(int argc, char** argv)
 				sscanf(optarg, "%d", &in);
 				sscanf(argv[optind], "%d", &out);
 				sscanf(argv[optind + 1], "%d", &err);
-				// TODO: sscanf failedx3
+				// TODO: sscanf failed x3
 
 				arg_ind = optind + 2; // account for file numbers
 				num_args = 0; // num of args we'll put into argv for execvp
@@ -91,7 +92,8 @@ int main(int argc, char** argv)
 				for (int j = 0; j < num_args; j++)
 				{	
 					my_argv[j] = argv[j+optind+2];
-				}	
+				}
+				optind = arg_ind; // set optind to next command
 
 				// Verbose
 				if (verbose_on) {
@@ -106,11 +108,26 @@ int main(int argc, char** argv)
 				}
 
 				// TODO: Fork
-				
-				// TODO: file descriptor editing
+				pid_t forker = fork();
+				if (forker < 0) {
+					perror(NULL);
+					fprintf(stderr, 
+						"Could not execute command. Skipping...\n");
+				}
+				else if (forker == 0) {
+					// File descriptor editing
+					dup2(in+3, 0);
+					dup2(out+3, 1);
+					dup2(err+3, 2);
+					// TODO: dup2 failed x 3
 
-				// TODO: Execute command
-				execvp(my_argv[0], my_argv);
+					// Execute command
+					execvp(my_argv[0], my_argv);
+					// TODO: execvp failed
+				}
+				else {
+					wait(NULL);
+				}
 				break;
 
 			case VERBOSE:
