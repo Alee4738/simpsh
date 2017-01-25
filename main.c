@@ -20,8 +20,8 @@ const int FD_TABLE_START = 10; // start fd_table size
 const int ARGV_START = 10; // start my_argv size
 
 enum options { 
-	PIPE,
-	COMMAND, WAIT, 
+	PIPE = 3,
+	COMMAND = 4, WAIT = 5, // assignments due to conflicts with other flags 
 	CLOSE, VERBOSE, PROFILE, ABORT, CATCH, IGNORE, DEFAULT, PAUSE
 };
 
@@ -107,7 +107,7 @@ int main(int argc, char** argv)
 		switch (ret)
 		{
 			// 
-			// FILE FLAGS
+			// 1. FILE FLAGS
 			//
 			case O_APPEND:
 			case O_CLOEXEC:
@@ -127,7 +127,7 @@ int main(int argc, char** argv)
 				break;
 
 			// 
-			// FILE-OPENING OPTIONS
+			// 2. FILE-OPENING OPTIONS
 			//
 			case O_RDONLY:
 			case O_WRONLY: 
@@ -153,13 +153,31 @@ int main(int argc, char** argv)
 				else { num_files++;	}
 				break;
 
+			case PIPE: // TODO
+				break;
+
+
+			// 
+			// 3. Subcommand options
+			//
 			case COMMAND:
-				// Scan in file numbers, TODO: check not null, they're numbers, finally, that they're less than num_files
+				// Scan in file numbers, TODO: check not null, they're numbers 
 				// Process all strings related to cmd (i o e cmd args)
 				sscanf(optarg, "%d", &in);
 				sscanf(argv[optind], "%d", &out);
 				sscanf(argv[optind + 1], "%d", &err);
 				// TODO: sscanf failed x3
+
+				// errchk: valid file descriptors, fds[ind] < 0 == closed fd
+				if (in >= num_files || in < 0 || fds[in] < 0
+				 || out >= num_files || out < 0 || fds[out] < 0
+				 || err >= num_files || err < 0 || fds[err] < 0
+				 ) {
+					fprintf(stderr, "Invalid file descriptor in \"--command %d %d %d %s...\"\n", in, out, err, my_argv[0]);
+					break;
+				}
+
+				// Capture all arguments
 				arg_ind = optind + 2; // account for file numbers
 				num_args = 0; // num of args we'll put into argv for execvp
 				while (argv[arg_ind] != NULL 
@@ -202,12 +220,6 @@ int main(int argc, char** argv)
 				}
 				else if (forker == 0) {
 					// File descriptor editing
-					// TODO: once we implement closing fd's, need to check more (not using a closed fd)
-					if (in >= num_files || out >= num_files || err >= num_files) {
-						fprintf(stderr, "Invalid file descriptor in \"--command %d %d %d %s...\"", in, out, err, my_argv[0]);
-						break;
-					}
-
 					dup2(fds[in], 0);
 					dup2(fds[out], 1);
 					dup2(fds[err], 2);
@@ -226,11 +238,60 @@ int main(int argc, char** argv)
 					has_command = true;
 				}
 				break;
+			
+			case WAIT: // TODO:
+				break;
+			
 
-			case VERBOSE:
-				verbose_on = true;
+			// 
+			// 4. Misc. Options
+			//
+			case CLOSE:
+				// errchk: missing operand and mistook next option as its arg
+				if (strstr(optarg, "--") == optarg) {
+					optind--; // fix indexing
+					psyntax_err(argv[optind]);
+					break;
+				}
+				if (verbose_on) {
+					printf("%s %s\n", argv[optind-2], optarg); 
+				}
+
+				// More error checking, closing is easy
+				ret = atoi(optarg); // Note: returns 0 on fail to convert
+				if (ret >= num_files || ret < 0) { // Invalid file num
+					fprintf(stderr, "Invalid file number %d\n", ret);
+				}
+				else if (optarg[0] < '0' || optarg[0] > '9') { // arg not a num
+					psyntax_err("--close <file_number>");
+				}
+				else if (fds[ret] == -1) { // Already closed fd
+					fprintf(stderr, "Already closed file number %d\n", ret);
+				}
+				else { // valid - close it
+					close(fds[ret]);
+					fds[ret] = -1;
+				}
 				break;
 
+			case VERBOSE: verbose_on = true; break;
+			case PROFILE: // TODO:
+				break;
+			case ABORT: // TODO:
+				break;
+			case CATCH: // TODO
+				break;
+			case IGNORE: // TODO
+				break;
+			case DEFAULT: // TODO
+				break;
+			case PAUSE: // TODO
+				break;
+
+
+			//
+			// 5. Built-in errors
+			//
 			case -1: break; // getopt done processing args
 			case 63: // arg not provided, required_argument enforced
 				psyntax_err(argv[optind-1]);
