@@ -131,28 +131,8 @@ int main(int argc, char** argv)
 			// FILE-OPENING OPTIONS
 			//
 			case RDONLY:
-				// errchk: missing operand and mistook next option as its arg
-				if (strstr(optarg, "--") == optarg) {
-					optind--; // fix indexing
-					psyntax_err(argv[optind]);
-					break;
-				}
-
-				if (verbose_on) {
-					printf("%s %s\n", argv[optind-2], optarg);
-				}
-				
-				// open the file
-				fds[num_files] = open(optarg, ret|flags);
-				flags = 0; // reset
-				// errck: open failed, returned -1
-				if (fds[num_files] < 0) { 
-					popen_err(argv[optind-1]);
-				}
-				else { num_files++;	}
-				break;
-
-			case WRONLY:
+			case WRONLY: 
+			case RDWR: // Note: the difference is captured in ret
 				// errchk: missing operand and mistook next option as its arg
 				if (strstr(optarg, "--") == optarg) {
 					optind--; // fix indexing
