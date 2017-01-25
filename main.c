@@ -20,8 +20,7 @@ const int FD_TABLE_START = 10; // start fd_table size
 const int ARGV_START = 10; // start my_argv size
 
 enum options { 
-	// APPEND, CLOEXEC, CREAT, DSYNC, DIRECTORY, EXCL, NOFOLLOW, NONBLOCK, RSYNC, SYNC, TRUNC, 
-	RDONLY, WRONLY, RDWR, PIPE,
+	PIPE,
 	COMMAND, WAIT, 
 	CLOSE, VERBOSE, PROFILE, ABORT, CATCH, IGNORE, DEFAULT, PAUSE
 };
@@ -42,9 +41,9 @@ struct option long_options[] =
 	{"trunc", no_argument, NULL, O_TRUNC},
 
 	// File opening options
-	{"rdonly", required_argument, NULL, RDONLY},
-	{"wronly", required_argument, NULL, WRONLY},
-	{"rdwr", required_argument, NULL, RDWR},
+	{"rdonly", required_argument, NULL, O_RDONLY},
+	{"wronly", required_argument, NULL, O_WRONLY},
+	{"rdwr", required_argument, NULL, O_RDWR},
 	{"pipe", no_argument, NULL, PIPE},
 
 
@@ -130,9 +129,9 @@ int main(int argc, char** argv)
 			// 
 			// FILE-OPENING OPTIONS
 			//
-			case RDONLY:
-			case WRONLY: 
-			case RDWR: // Note: the difference is captured in ret
+			case O_RDONLY:
+			case O_WRONLY: 
+			case O_RDWR: // Note: the difference is captured in ret
 				// errchk: missing operand and mistook next option as its arg
 				if (strstr(optarg, "--") == optarg) {
 					optind--; // fix indexing
@@ -265,7 +264,7 @@ void psyntax_err(char* option)
 void popen_err(const char* option) 
 {
 	fprintf(stderr, 
-	"Failed to open file \"%s\". Skipping option...\n", option);
+		"Failed to open file \"%s\". Skipping option...\n", option);
 	if (!has_command && exit_status == 0) {
 		exit_status = 1;		
 	}
