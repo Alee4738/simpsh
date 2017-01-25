@@ -19,14 +19,49 @@
 const int FD_TABLE_START = 10; // start fd_table size
 const int ARGV_START = 10; // start my_argv size
 
-enum options {RDONLY, WRONLY, COMMAND, VERBOSE};
+enum options { 
+	// APPEND, CLOEXEC, CREAT, DSYNC, DIRECTORY, EXCL, NOFOLLOW, NONBLOCK, RSYNC, SYNC, TRUNC, 
+	RDONLY, WRONLY, RDWR, PIPE,
+	COMMAND, WAIT, 
+	CLOSE, VERBOSE, PROFILE, ABORT, CATCH, IGNORE, DEFAULT, PAUSE
+};
 
 struct option long_options[] = 
 {
+	// File Flags
+	{"append", no_argument, NULL, O_APPEND},
+	{"cloexec", no_argument, NULL, O_CLOEXEC},
+	{"creat", no_argument, NULL, O_CREAT},
+	{"dsync", no_argument, NULL, O_DSYNC},
+	{"directory", no_argument, NULL, O_DIRECTORY},
+	{"excl", no_argument, NULL, O_EXCL},
+	{"nofollow", no_argument, NULL, O_NOFOLLOW},
+	{"nonblock", no_argument, NULL, O_NONBLOCK},
+	{"rsync", no_argument, NULL, O_RSYNC},
+	{"sync", no_argument, NULL, O_SYNC},
+	{"trunc", no_argument, NULL, O_TRUNC},
+
+	// File opening options
 	{"rdonly", required_argument, NULL, RDONLY},
 	{"wronly", required_argument, NULL, WRONLY},
+	{"rdwr", required_argument, NULL, RDWR},
+	{"pipe", no_argument, NULL, PIPE},
+
+
+	// Subcommand options
 	{"command", required_argument, NULL, COMMAND},
+	{"wait", no_argument, NULL, WAIT},
+
+	// Misc. options
+	{"close", required_argument, NULL, CLOSE},
 	{"verbose", no_argument, NULL, VERBOSE},
+	{"profile", no_argument, NULL, PROFILE},
+	{"abort", no_argument, NULL, ABORT},
+	{"catch", required_argument, NULL, CATCH},
+	{"ignore", required_argument, NULL, IGNORE},
+	{"default", required_argument, NULL, DEFAULT},
+	{"pause", no_argument, NULL, PAUSE},
+
 	{0,0,0,0}
 };
 int exit_status = 0;
@@ -46,10 +81,12 @@ int main(int argc, char** argv)
 	// For --verbose
 	bool verbose_on = false;
 
-	// For creating files (rdonly, wronly, pipe)
+	// For creating files (rdonly, wronly, rdwr, pipe)
 	int* fds = malloc(FD_TABLE_START*sizeof(int));
 	int fds_limit = FD_TABLE_START;
 	int num_files = 0; // === fds's actual size 
+	int flags = 0;
+	int ret_flag;
 
 	// For --command processing
 	int size_count, in, out, err, arg_ind, num_args;
@@ -70,23 +107,47 @@ int main(int argc, char** argv)
 		ret = getopt_long(argc, argv, "", long_options, NULL);
 		switch (ret)
 		{
+			// 
+			// FILE FLAGS
+			//
+			case O_APPEND:
+			case O_CLOEXEC:
+			case O_CREAT:
+			case O_DIRECTORY:
+			case O_DSYNC:
+			case O_EXCL:
+			case O_NOFOLLOW:
+			case O_NONBLOCK:
+			// case O_RSYNC: (glibc says O_RSYNC == O_SYNC)
+			case O_SYNC:
+			case O_TRUNC:		
+				if (verbose_on) {
+					printf("%s\n", argv[optind-1]); 
+				}
+				flags = flags|ret;
+				break;
+
+			// 
+			// FILE-OPENING OPTIONS
+			//
 			case RDONLY:
 				// errchk: missing operand and mistook next option as its arg
 				if (strstr(optarg, "--") == optarg) {
 					optind--; // fix indexing
-					psyntax_err("--rdonly");
+					psyntax_err(argv[optind]);
 					break;
 				}
 
 				if (verbose_on) {
-					printf("--rdonly %s\n", optarg);
+					printf("%s %s\n", argv[optind-2], optarg);
 				}
 				
 				// open the file
-				fds[num_files] = open(optarg, O_RDONLY);
-				// errck: open failed
+				fds[num_files] = open(optarg, ret|flags);
+				flags = 0; // reset
+				// errck: open failed, returned -1
 				if (fds[num_files] < 0) { 
-					popen_err("--rdonly");
+					popen_err(argv[optind-1]);
 				}
 				else { num_files++;	}
 				break;
@@ -95,19 +156,20 @@ int main(int argc, char** argv)
 				// errchk: missing operand and mistook next option as its arg
 				if (strstr(optarg, "--") == optarg) {
 					optind--; // fix indexing
-					psyntax_err("--wronly");
+					psyntax_err(argv[optind]);
 					break;
 				}
 
 				if (verbose_on) {
-					printf("--wronly %s\n", optarg);
+					printf("%s %s\n", argv[optind-2], optarg);
 				}
 				
 				// open the file
-				fds[num_files] = open(optarg, O_WRONLY);
-				// errck: open failed
+				fds[num_files] = open(optarg, ret|flags);
+				flags = 0; // reset
+				// errck: open failed, returned -1
 				if (fds[num_files] < 0) { 
-					popen_err("--wronly");
+					popen_err(argv[optind-1]);
 				}
 				else { num_files++;	}
 				break;
@@ -190,8 +252,8 @@ int main(int argc, char** argv)
 				verbose_on = true;
 				break;
 
-			case -1: break;
-			case 63: // no required_argument for option
+			case -1: break; // getopt done processing args
+			case 63: // arg not provided, required_argument enforced
 				psyntax_err(argv[optind-1]);
 				break;
 			default:
@@ -228,4 +290,3 @@ void popen_err(const char* option)
 		exit_status = 1;		
 	}
 }
-
