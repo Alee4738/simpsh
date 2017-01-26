@@ -33,7 +33,7 @@ fi
 echo ""
 echo "---Test case 2: Unreadable file, should say \"Skipping\""
 chmod ugo-r in2
-./simpsh --rdonly in2 2> err2
+./simpsh --rdonly in2 
 ret=$?
 sleep 0.25
 grep Skip err2
@@ -97,31 +97,42 @@ else
 	echo "---Test 2 passed"
 fi
 
-# Test Case: --pipe works
+# TODO Test Case: --pipe works
 
 
-# Test Case: --close N works
+# TODO Test Case: --close N works
+echo ""
+echo "---Test case 3: --close N works"
+rm out1 err1 out2 err2; touch out1 err1 out2 err2
+./simpsh --rdonly in1 --wronly out1 --wronly err1 --rdwr in2 --rdwr out2 --close 5 --rdwr err2 --close 5 --close 5 --close 10 --close -1 --command 0 1 2 cat --command 3 4 5 cat
+diff in1 out1; ret=$?
+diff in2 out2 > /dev/null
+if [ $? -ne 1 ] \
+|| [ $ret -ne 0 ]; then \
+	echo "---Test case 3 failed"
+else
+	echo "---Test case 3 passed"
+fi
+
+# TODO Test Case: --wait works
 
 
-# Test Case: --wait works
+# TODO Test Case: --abort works
 
 
-# Test Case: --abort works
+# TODO Test Case: --catch N works
 
 
-# Test Case: --catch N works
+# TODO Test Case: --ignore N works
 
 
-# Test Case: --ignore N works
+# TODO Test Case: --default N works
 
 
-# Test Case: --default N works
+# TODO Test Case: --pause works
 
 
-# Test Case: --pause works
-
-
-# Test Case: Spec's example shell script works, outputs exit statuses
+# TODO Test Case: Spec's example shell script works, outputs exit statuses
 
 
 echo -e "-------------------------------\n\n\n" 

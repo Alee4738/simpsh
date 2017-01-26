@@ -253,24 +253,34 @@ int main(int argc, char** argv)
 					psyntax_err(argv[optind]);
 					break;
 				}
+
 				if (verbose_on) {
 					printf("%s %s\n", argv[optind-2], optarg); 
 				}
 
 				// More error checking, closing is easy
-				ret = atoi(optarg); // Note: returns 0 on fail to convert
+				ret = atoi(optarg); // Note: atoi returns 0 on fail to convert
 				if (ret >= num_files || ret < 0) { // Invalid file num
-					fprintf(stderr, "Invalid file number %d\n", ret);
+					fprintf(stderr, "--close: Invalid file number %d\n", ret);
+					if (ret == -1) { // messes up while loop
+						ret = -2;
+					}
 				}
 				else if (optarg[0] < '0' || optarg[0] > '9') { // arg not a num
-					psyntax_err("--close <file_number>");
+					psyntax_err("--close <file_num> (must be int)");
 				}
 				else if (fds[ret] == -1) { // Already closed fd
-					fprintf(stderr, "Already closed file number %d\n", ret);
+					fprintf(stderr, "--close: Already closed file number %d\n", ret);
 				}
 				else { // valid - close it
 					close(fds[ret]);
 					fds[ret] = -1;
+					ret = -2; // hack for next step
+				}
+				if (ret != -2) {
+					if (!has_command && exit_status == 0) {
+						exit_status = 1;
+					}
 				}
 				break;
 
