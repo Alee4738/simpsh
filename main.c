@@ -72,11 +72,24 @@ struct option long_options[] =
 int exit_status = 0;
 bool has_command = false; // ran at least 1 subcommand
 
-// Helper functions
-void pusage();
-void psyntax_err(char* option); // print syntax error for given option, sets exit_status appropriately
-void popen_err(const char* option); // print open error for given option, sets exit_status appropriately
 
+//
+// Helper functions
+//
+void pusage(); // print usage
+void popt_err(const char* option, const char* args, const char* desc); 
+	// print option error - sets exit_status appropriately
+	// params: option, argument (1 only), description
+
+bool pno_operand(char** argv); 
+	// prints missing operand - sets exit_status & optind appropriately
+	// return true if no operand exists
+	// 		(mistakenly got optarg starting with "--")
+
+
+//
+// The meaty part
+//
 int main(int argc, char** argv)
 {
 	// For getopt_long
@@ -97,6 +110,7 @@ int main(int argc, char** argv)
 	int size_count, in, out, err, arg_ind, num_args;
 	char** my_argv = malloc(ARGV_START*sizeof(char*));
 	int my_argv_size = ARGV_START;
+
 
 	// Parse the options
 	do 
@@ -138,12 +152,8 @@ int main(int argc, char** argv)
 			case O_RDONLY:
 			case O_WRONLY: 
 			case O_RDWR: // Note: the difference is captured in ret
-				// errchk: missing operand and mistook next option as its arg
-				if (strstr(optarg, "--") == optarg) {
-					optind--; // fix indexing
-					psyntax_err(argv[optind]);
-					break;
-				}
+				// errchk: missing operand
+				if (pno_operand(argv)) { break; }
 
 				if (verbose_on) {
 					printf("%s %s\n", argv[optind-2], optarg);
@@ -152,9 +162,9 @@ int main(int argc, char** argv)
 				// open the file
 				fds[num_files] = open(optarg, ret|flags);
 				flags = 0; // reset
-				// errck: open failed, returned -1
+				// errck: open failed and returned -1
 				if (fds[num_files] < 0) { 
-					popen_err(argv[optind-1]);
+					popt_err(argv[optind-2], optarg, "file could not be opened");
 				}
 				else { num_files++;	}
 				break;
@@ -253,12 +263,8 @@ int main(int argc, char** argv)
 			// 4. Misc. Options
 			//
 			case CLOSE:
-				// errchk: missing operand and mistook next option as its arg
-				if (strstr(optarg, "--") == optarg) {
-					optind--; // fix indexing
-					psyntax_err(argv[optind]);
-					break;
-				}
+				// errchk: missing operand
+				if (pno_operand(argv)) { break; }
 
 				if (verbose_on) {
 					printf("%s %s\n", argv[optind-2], optarg); 
@@ -273,7 +279,7 @@ int main(int argc, char** argv)
 					}
 				}
 				else if (optarg[0] < '0' || optarg[0] > '9') { // arg not a num
-					psyntax_err("--close <file_num> (must be int)");
+					popt_err(argv[optind-2], argv[optind-1], "must be int");
 				}
 				else if (fds[ret] == -1) { // Already closed fd
 					fprintf(stderr, "--close: Already closed file number %d\n", ret);
@@ -306,12 +312,8 @@ int main(int argc, char** argv)
 			case CATCH: 
 			case IGNORE:
 			case DEFAULT:
-				// errchk: missing operand and mistook next option as its arg
-				if (strstr(optarg, "--") == optarg) {
-					optind--; // fix indexing
-					psyntax_err(argv[optind]);
-					break;
-				}
+				// errchk: missing operand
+				if (pno_operand(argv)) { break; }
 
 				if (verbose_on) {
 					printf("%s %s\n", argv[optind-2], optarg); 
@@ -342,7 +344,7 @@ int main(int argc, char** argv)
 			//
 			case -1: break; // getopt done processing args
 			case 63: // arg not provided, required_argument enforced
-				psyntax_err(argv[optind-1]);
+				pno_operand(argv);
 				break;
 			default:
 				pusage();
@@ -362,19 +364,30 @@ void pusage()
 	printf("Usage: ./simpsh [--verbose] [--rdonly INPUTFILE] [--wronly OUTPUTFILE] [--command # # # COMMAND] where # are file descriptors for stdin, stdout, and stderr (file descriptors assigned from left to right)\n");
 }
 
-void psyntax_err(char* option)
+void popt_err(const char* option, const char* arg, const char* desc)
 {
-	fprintf(stderr, "%s: syntax error. Skipping option...\n", option);
-	if (!has_command && exit_status == 0) {
-		exit_status = 1;
-	}
-}
-
-void popen_err(const char* option) 
-{
-	fprintf(stderr, 
-		"Failed to open file \"%s\". Skipping option...\n", option);
+	char* empty = "";
+	fprintf(stderr, "%s %s: %s\n", 
+		(option != NULL) ? option : empty, 
+		(arg != NULL) ? arg : empty, 
+		(desc != NULL) ? desc : empty );
 	if (!has_command && exit_status == 0) {
 		exit_status = 1;		
 	}
+}
+
+bool pno_operand(char** argv)
+{
+	// not at end, took next option as argument
+	if (optarg != NULL && strstr(optarg, "--") == optarg) { 
+		optind--; // fix indexing
+		popt_err(argv[optind-1], NULL, "missing operand");
+		return true;
+	}
+	// at the end, no arg provided
+	else if (argv[optind] == NULL) {
+		popt_err(argv[optind-1], NULL, "missing operand");
+		return true;
+	}
+	return false;
 }
