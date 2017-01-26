@@ -303,7 +303,9 @@ int main(int argc, char** argv)
 				*die = ABORT; // DIE
 				break; // and gracefully exit if you don't
 
-			case CATCH: // TODO
+			case CATCH: 
+			case IGNORE:
+			case DEFAULT:
 				// errchk: missing operand and mistook next option as its arg
 				if (strstr(optarg, "--") == optarg) {
 					optind--; // fix indexing
@@ -316,22 +318,23 @@ int main(int argc, char** argv)
 				}
 
 				// More error checking, closing is easy
-				ret = atoi(optarg); // Note: atoi returns 0 on fail to convert
-				signal(ret, &sig_handler);
+				int sig = atoi(optarg); // Note: atoi returns 0 on fail to convert
+				if (ret == CATCH) {
+					signal(sig, &sig_handler);
+				}
+				else if (ret == IGNORE) {
+					signal(sig, SIG_IGN);
+				}
+				else { // == DEFAULT
+					signal(sig, SIG_DFL);
+				}
+				// Clean up in signal is weird
 				if (ret == -1) {
 					ret = -2; // because of the while (ret != -1)
 				}
-				pause();
 				break;
 			
-			case IGNORE: // TODO
-				break;
-			
-			case DEFAULT: // TODO
-				break;
-			
-			case PAUSE: // TODO
-				break;
+			case PAUSE: pause(); break;
 
 
 			//

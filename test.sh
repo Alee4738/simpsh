@@ -11,6 +11,8 @@ done
 echo "blah bloo bloo blee\n" > in1
 echo "Words and more\nwords balhkfdsf\n" > in2
 echo "fsldjf\0 ls kdfj2\2 lsdkjf3\n \tsdlkf" > in3
+testsPassed=0
+testNum=0
 
 # create simpsh if not already
 if [ ! -e simpsh ]; then make; fi
@@ -19,31 +21,36 @@ if [ ! -e simpsh ]; then make; fi
 echo "LAB 1A TEST CASES"
 echo "-------------------------------" 
 # Test Case: standard rdonly, wronly, command
-echo "---Test case 1: rdonly, wronly, command (cat -> diff), should return 0"
+(( testnum++ ))
+echo "---Test case $testNum: rdonly, wronly, command (cat -> diff), should return 0"
 ./simpsh --rdonly in1 --wronly out1 --wronly err1 --command 0 1 2 cat
 sleep 0.25
 diff in1 out1
 if [ $? -ne 0 ]; then \
-	echo "---Test case 1 failed"
+	echo "---Test case $testNum failed"
 else
-    echo "---Test case 1 passed"
+    echo "---Test case $testNum passed"
+	(( passed++ ))
 fi
 
 # Test Case: Unreadable file, should say something like "Skipping"
+(( testnum++ ))
 echo ""
-echo "---Test case 2: Unreadable file, should say \"Skipping\" (check manually)"
+echo "---Test case $testnum: Unreadable file, should say \"Skipping\" (check manually)"
 touch in2; chmod ugo-r in2
 ./simpsh --rdonly in2
 ret=$?
 if [ $ret -ne 1 ]; then \
-    echo "---Test case 2 failed"
+    echo "---Test case $testnum failed"
 else
-    echo "---Test case 2 passed"
+    echo "---Test case $testnum passed"
+	(( passed++ ))
 fi
 
 # Test Case: print verbose options only AFTER it is read
+(( testnum++ ))
 echo ""
-echo "---Test case 3: print verbose options only after verbose is read"
+echo "---Test case $testnum: print verbose options only after verbose is read"
 ./simpsh --rdonly in1 --wronly out1 --verbose --rdonly in3 --wronly out3 --wronly err3 --command 2 3 4 cat > out2
 sleep 0.25
 diff in3 out3; same=$?
@@ -53,9 +60,10 @@ grep 'rdonly in3' out2; print=$?
 if [ $same -ne 0 ] \
 || [ $noprint -eq 0 ] \
 || [ $print != 0 ]; then \
-    echo "---Test case 3 failed"
+    echo "---Test case $testnum failed"
 else
-    echo "---Test case 3 passed"
+    echo "---Test case $testnum passed"
+	(( passed++ ))
 fi
 
 echo -e "-------------------------------\n\n\n" 
@@ -64,7 +72,8 @@ echo -e "-------------------------------\n\n\n"
 echo "LAB 1B TEST CASES"
 echo "-------------------------------" 
 # Test Case: O_* file flags work, test creat and append
-echo "---Test case 1: O_* file flags work, test creat and append"
+(( testnum++ ))
+echo "---Test case $testnum: O_* file flags work, test creat and append"
 rm out1; 
 ./simpsh --rdonly in1 --creat --wronly out1 --wronly err1 --command 0 1 2 cat
 chmod ugo+rw out1
@@ -76,31 +85,34 @@ tmp=$(mktemp)
 cat in1 in1 > $tmp; diff $tmp out1
 if [ $? -ne 0 ] \
 || [ $ret -ne 0 ]; then \
-	echo "---Test 1 failed"
+	echo "---Test case $testnum failed"
 else
-	echo "---Test 1 passed"
+	echo "---Test case $testnum passed"
+	(( passed++ ))
 fi 
 
 # Test Case: --rdwr works
+(( testnum++ ))
 echo ""
-echo "---Test case 2: --rdwr works"
+echo "---Test case $testnum: --rdwr works"
 chmod ugo+rw in2;
-# rm in2; touch in2; chmod ugo+rw in2;
 ./simpsh --rdwr in2 --trunc --rdwr out2 --rdwr err2 --command 0 1 2 cat
 sleep 0.25
 diff in2 out2
 if [ $? -ne 0 ]; then \
-	echo "---Test 2 failed"
+	echo "---Test case $testnum failed"
 else
-	echo "---Test 2 passed"
+	echo "---Test case $testnum passed"
+	(( passed++ ))
 fi
 
 # TODO Test Case: --pipe works
 
 
-# TODO Test Case: --close N works
+# Test Case: --close N works
+(( testnum++ ))
 echo ""
-echo "---Test case 3: --close N works"
+echo "---Test case $testnum: --close N works"
 rm out1 err1 out2 err2; touch out1 err1 out2 err2
 ./simpsh --rdonly in1 --wronly out1 --wronly err1 --rdwr in2 --rdwr out2 --close 5 --rdwr err2 --close 5 --close 5 --close 10 --close -1 --command 0 1 2 cat --command 3 4 5 cat
 sleep 0.25
@@ -108,47 +120,70 @@ diff in1 out1; ret=$?
 diff in2 out2 > /dev/null
 if [ $? -ne 1 ] \
 || [ $ret -ne 0 ]; then \
-	echo "---Test case 3 failed"
+	echo "---Test case $testnum failed"
 else
-	echo "---Test case 3 passed"
+	echo "---Test case $testnum passed"
+	(( passed++ ))
 fi
 
 # TODO Test Case: --wait works
 
 
-# TODO Test Case: --abort works
+# Test Case: --abort works
+(( testnum++ ))
 echo ""
-echo "---Test case 4: --abort works"
+echo "---Test case $testnum: --abort works"
 ret=$(mktemp)
 $(./simpsh --rdonly in1 --abort --wronly out1) > $ret 2>&1
 grep egmentation $ret
 if [ $? -ne 1 ]; then \
-	echo "---Test case 4 failed"
+	echo "---Test case $testnum failed"
 else
-	echo "---Test case 4 passed"
+	echo "---Test case $testnum passed"
+	(( passed++ ))
 fi
 
-# TODO Test Case: --catch N works
+# Test Case: --catch N works
+(( testnum++ ))
 echo ""
-echo "---Test case 5: --catch N works"
+echo "---Test case $testnum: --catch N works"
 tmp=$(mktemp)
 ./simpsh --rdonly in2 --catch 11 --abort
 ret=$?
 if [ $ret -ne 11 ]; then
-	echo "---Test case 5 failed"
+	echo "---Test case $testnum failed"
 else
-	echo "---Test case 5 passed"
+	echo "---Test case $testnum passed"
+	(( passed++ ))
 fi
 
+# Test Case: --ignore N works
+(( testnum++ ))
+echo ""
+echo "---Test case $testnum: --ignore N works"
+tmp=$(mktemp)
+$(./simpsh --rdonly in1 --catch 11 --ignore 11 --abort --wronly out1) > $ret 2>&1
+grep egmentation $ret
+if [ $? -ne 1 ]; then \
+	echo "---Test case $testnum failed"
+else
+	echo "---Test case $testnum passed"
+	(( passed++ ))
+fi
 
-# TODO Test Case: --ignore N works
-
-
-# TODO Test Case: --default N works
-
-
-# TODO Test Case: --pause works
-
+# Test Case: --default N works
+(( testnum++ ))
+echo ""
+echo "---Test case $testnum: --default N works"
+tmp=$(mktemp)
+$(./simpsh --rdonly in1 --catch 11 --default 11 --abort --wronly out1) > $ret 2>&1
+grep egmentation $ret
+if [ $? -ne 1 ]; then \
+	echo "---Test case $testnum failed"
+else
+	echo "---Test case $testnum passed"
+	(( passed++ ))
+fi
 
 # TODO Test Case: Spec's example shell script works, outputs exit statuses
 
@@ -168,7 +203,7 @@ echo -e "-------------------------------\n\n\n"
 # Test Case:
 
 
-
-
+echo "-------------------------------" 
+echo "Passed $passed tests out of $testnum"
 # rm -f $files
 
