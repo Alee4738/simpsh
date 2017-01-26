@@ -4,6 +4,10 @@
 # Initialization: make some files
 files="in1 in2 in3 out1 out2 out3 err1 err2 err3"
 rm -f $files; touch $files
+for i in $files
+do
+	chmod ugo+rw $i
+done
 echo "blah bloo bloo blee\n" > in1
 echo "Words and more\nwords balhkfdsf\n" > in2
 echo "fsldjf\0 ls kdfj2\2 lsdkjf3\n \tsdlkf" > in3
@@ -17,6 +21,7 @@ echo "-------------------------------"
 # Test Case: standard rdonly, wronly, command
 echo "---Test case 1: rdonly, wronly, command (cat -> diff), should return 0"
 ./simpsh --rdonly in1 --wronly out1 --wronly err1 --command 0 1 2 cat
+sleep 0.25
 diff in1 out1
 if [ $? -ne 0 ]; then \
 	echo "---Test case 1 failed"
@@ -30,6 +35,7 @@ echo "---Test case 2: Unreadable file, should say \"Skipping\""
 chmod ugo-r in2
 ./simpsh --rdonly in2 2> err2
 ret=$?
+sleep 0.25
 grep Skip err2
 if [ $? -ne 0 ] || [ $ret -ne 1 ]; then \
     echo "---Test case 2 failed"
@@ -41,6 +47,7 @@ fi
 echo ""
 echo "---Test case 3: print verbose options only after verbose is read"
 ./simpsh --rdonly in1 --wronly out1 --verbose --rdonly in3 --wronly out3 --wronly err3 --command 2 3 4 cat > out2
+sleep 0.25
 diff in3 out3; same=$?
 grep 'rdonly in1' out2; noprint=$?
 grep 'rdonly in3' out2; print=$?
@@ -63,8 +70,10 @@ echo "---Test case 1: O_* file flags work, test creat and append"
 rm out1; 
 ./simpsh --rdonly in1 --creat --wronly out1 --wronly err1 --command 0 1 2 cat
 chmod ugo+rw out1
-diff in1 out1; ret=$?
+sleep 0.25
+diff in1 out1 > /dev/null; ret=$?
 ./simpsh --rdonly in1 --append --wronly out1 --wronly err1 --command 0 1 2 cat
+sleep 0.25
 tmp=$(mktemp)
 cat in1 in1 > $tmp; diff $tmp out1
 if [ $? -ne 0 ] \
@@ -75,24 +84,45 @@ else
 fi 
 
 # Test Case: --rdwr works
+echo ""
+echo "---Test case 2: --rdwr works"
+chmod ugo+rw in2;
+# rm in2; touch in2; chmod ugo+rw in2;
+./simpsh --rdwr in2 --trunc --rdwr out2 --rdwr err2 --command 0 1 2 cat
+sleep 0.25
+diff in2 out2
+if [ $? -ne 0 ]; then \
+	echo "---Test 2 failed"
+else
+	echo "---Test 2 passed"
+fi
 
 # Test Case: --pipe works
 
+
 # Test Case: --close N works
+
 
 # Test Case: --wait works
 
+
 # Test Case: --abort works
+
 
 # Test Case: --catch N works
 
+
 # Test Case: --ignore N works
+
 
 # Test Case: --default N works
 
+
 # Test Case: --pause works
 
+
 # Test Case: Spec's example shell script works, outputs exit statuses
+
 
 echo -e "-------------------------------\n\n\n" 
 
@@ -111,5 +141,5 @@ echo -e "-------------------------------\n\n\n"
 
 
 
-rm -f $files
+# rm -f $files
 
