@@ -19,6 +19,12 @@
 const int FD_TABLE_START = 10; // start fd_table size
 const int ARGV_START = 10; // start my_argv size
 
+void sig_handler(int signum)
+{
+	fprintf(stderr, "Signal %d caught! Exiting...\n", signum);
+	exit(signum);
+}
+
 enum options { 
 	PIPE = 3,
 	COMMAND = 4, WAIT = 5, // assignments due to conflicts with other flags 
@@ -285,16 +291,45 @@ int main(int argc, char** argv)
 				break;
 
 			case VERBOSE: verbose_on = true; break;
+
 			case PROFILE: // TODO:
 				break;
-			case ABORT: // TODO:
-				break;
+
+			case ABORT:
+				if (verbose_on) {
+					printf("%s\n", argv[optind-1]); 
+				}
+				; char* die = 0; // get ready
+				*die = ABORT; // DIE
+				break; // and gracefully exit if you don't
+
 			case CATCH: // TODO
+				// errchk: missing operand and mistook next option as its arg
+				if (strstr(optarg, "--") == optarg) {
+					optind--; // fix indexing
+					psyntax_err(argv[optind]);
+					break;
+				}
+
+				if (verbose_on) {
+					printf("%s %s\n", argv[optind-2], optarg); 
+				}
+
+				// More error checking, closing is easy
+				ret = atoi(optarg); // Note: atoi returns 0 on fail to convert
+				signal(ret, &sig_handler);
+				if (ret == -1) {
+					ret = -2; // because of the while (ret != -1)
+				}
+				pause();
 				break;
+			
 			case IGNORE: // TODO
 				break;
+			
 			case DEFAULT: // TODO
 				break;
+			
 			case PAUSE: // TODO
 				break;
 

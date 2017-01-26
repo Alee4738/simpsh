@@ -31,13 +31,11 @@ fi
 
 # Test Case: Unreadable file, should say something like "Skipping"
 echo ""
-echo "---Test case 2: Unreadable file, should say \"Skipping\""
-chmod ugo-r in2
-./simpsh --rdonly in2 
+echo "---Test case 2: Unreadable file, should say \"Skipping\" (check manually)"
+touch in2; chmod ugo-r in2
+./simpsh --rdonly in2
 ret=$?
-sleep 0.25
-grep Skip err2
-if [ $? -ne 0 ] || [ $ret -ne 1 ]; then \
+if [ $ret -ne 1 ]; then \
     echo "---Test case 2 failed"
 else
     echo "---Test case 2 passed"
@@ -105,6 +103,7 @@ echo ""
 echo "---Test case 3: --close N works"
 rm out1 err1 out2 err2; touch out1 err1 out2 err2
 ./simpsh --rdonly in1 --wronly out1 --wronly err1 --rdwr in2 --rdwr out2 --close 5 --rdwr err2 --close 5 --close 5 --close 10 --close -1 --command 0 1 2 cat --command 3 4 5 cat
+sleep 0.25
 diff in1 out1; ret=$?
 diff in2 out2 > /dev/null
 if [ $? -ne 1 ] \
@@ -118,9 +117,28 @@ fi
 
 
 # TODO Test Case: --abort works
-
+echo ""
+echo "---Test case 4: --abort works"
+ret=$(mktemp)
+$(./simpsh --rdonly in1 --abort --wronly out1) > $ret 2>&1
+grep egmentation $ret
+if [ $? -ne 1 ]; then \
+	echo "---Test case 4 failed"
+else
+	echo "---Test case 4 passed"
+fi
 
 # TODO Test Case: --catch N works
+echo ""
+echo "---Test case 5: --catch N works"
+tmp=$(mktemp)
+./simpsh --rdonly in2 --catch 11 --abort
+ret=$?
+if [ $ret -ne 11 ]; then
+	echo "---Test case 5 failed"
+else
+	echo "---Test case 5 passed"
+fi
 
 
 # TODO Test Case: --ignore N works
