@@ -17,7 +17,7 @@
 #include <string.h>
 
 const int FD_TABLE_START = 10; // start fd_table size
-const int ARGV_START = 10; // start my_argv size
+const int STD_BUFF_START = 10; // standard start size of generic dyn. array
 
 void sig_handler(int signum)
 {
@@ -29,6 +29,16 @@ enum options {
 	PIPE = 3,
 	COMMAND = 4, WAIT = 5, // assignments due to conflicts with other flags 
 	CLOSE, VERBOSE, PROFILE, ABORT, CATCH, IGNORE, DEFAULT, PAUSE
+};
+
+struct cmd
+{
+	pid_t pid;
+	int e_status;
+	char* name;
+	char** argv;
+	int num_args; // current num of args in argv
+	int argv_size; // limit on # of args to hold, argv is actually argv_size+1 because it must have null at end
 };
 
 struct option long_options[] = 
@@ -106,11 +116,12 @@ int main(int argc, char** argv)
 	int flags = 0;
 	int ret_flag;
 
+	
 	// For --command processing
 	int size_count, in, out, err, arg_ind, num_args;
-	char** my_argv = malloc(ARGV_START*sizeof(char*));
-	int my_argv_size = ARGV_START;
-
+	struct cmd* cmds;
+	int num_cmds = 0;
+	cmds = malloc((STD_BUFF_START+1)*sizeof(struct cmd)); // TODO: free later
 
 	// Parse the options
 	do 
@@ -184,48 +195,68 @@ int main(int argc, char** argv)
 				sscanf(argv[optind + 1], "%d", &err);
 				// TODO: sscanf failed x3
 
-				// errchk: valid file descriptors, fds[ind] < 0 == closed fd
-				if (in >= num_files || in < 0 || fds[in] < 0
-				 || out >= num_files || out < 0 || fds[out] < 0
-				 || err >= num_files || err < 0 || fds[err] < 0
-				 ) {
-					fprintf(stderr, "Invalid file descriptor in \"--command %d %d %d %s...\"\n", in, out, err, my_argv[0]);
-					break;
-				}
-
-				// Capture all arguments
+				// See how many arguments there are
+				// while putting them into the command struct
 				arg_ind = optind + 2; // account for file numbers
 				num_args = 0; // num of args we'll put into argv for execvp
 				while (argv[arg_ind] != NULL 
 					&& strstr(argv[arg_ind], "--") != argv[arg_ind]) 
 				{
+
 					arg_ind++; num_args++;
 				}
-				// TODO: if (num_args == 0) missing command!
-				if (my_argv_size <= num_args) {
-					my_argv = realloc(my_argv, (num_args+1)*sizeof(char*)); // need NULL at end
-					// TODO: realloc failed
-					my_argv_size = num_args + 1;
+
+				// errchk: doesn't have even a command 
+				if (num_args == 0) {
+					// Lots of init; should prob skip reading this
+					int len = strlen(optarg) + strlen(argv[optind]) + strlen(optind+1);
+					char* tmp = malloc((len+2+1)*sizeof(char)); // 2 spaces, 1 null
+					tmp = strcat(tmp, optarg);
+					tmp = strcat(tmp, argv[optind]);
+					tmp = strcat(tmp, argv[optind + 1]);
+					
+					// main part of the errchk
+					popt_err(argv[optind-2], tmp, "no command specified");
+
+					free(tmp);
 				}
 
-				// copy cmd's args (including cmd)
+				// errchk: invalid file descriptors, fds[ind] < 0 == closed fd
+				if (in >= num_files || in < 0 || fds[in] < 0
+				 || out >= num_files || out < 0 || fds[out] < 0
+				 || err >= num_files || err < 0 || fds[err] < 0
+				 ) {
+					fprintf(stderr, "Invalid file descriptor in \"--command %d %d %d %s...\"\n", in, out, err, argv[optind+2]);
+					break;
+				}
+
+
+				// Now that we know it has valid command structure,
+				// put command into cmds array
+				cmds[num_cmds].name = strdup(argv[optind+2]); // TODO: free later
+				cmds[num_cmds].num_args = num_args;
+				cmds[num_cmds].argv = malloc((num_args+1)*sizeof(char*)); // TODO: free later; +1 means need NULL at end
+				// TODO: malloc failed
+				cmds[num_cmds].argv_size = num_args;
+
+				// Capture all arguments
+				// copy cmd's args into argv of cmds (including cmd)
 				for (int j = 0; j < num_args; j++) {
-					my_argv[j] = argv[j+optind+2];
+					cmds[num_cmds].argv[j] = strdup(argv[j+optind+2]); // TODO: free later
 				}
 				optind = arg_ind; // set optind to next command
-				
 
 				// Verbose
 				if (verbose_on) {
 					printf("--command ");
 					printf("%d %d %d ", in, out, err);
-					int i;
-					for (i = 0; i < num_args-1; i++)
+					for (int i = 0; i < num_args-1; i++) // -1 bc no space at end
 					{
-						printf("%s ", my_argv[i]);
+						printf("%s ", cmds[num_cmds].argv[i]);
 					}
-					printf("%s\n", my_argv[i]);
+					printf("%s\n", cmds[num_cmds].argv[i]);
 				}
+
 
 				// Fork
 				pid_t forker = fork();
@@ -247,15 +278,35 @@ int main(int argc, char** argv)
 					}
 
 					// Execute command
-					execvp(my_argv[0], my_argv);
+					execvp(cmds[num_cmds].argv[0], cmds[num_cmds].argv);
 					// TODO: execvp failed
 				}
 				else { // command was properly executed
+					cmds[num_cmds].pid = forker;
 					has_command = true;
+					num_cmds++;
 				}
 				break;
 			
-			case WAIT: // TODO:
+			case WAIT:
+				for (int i = 0; i < num_args; i++) {
+					wait(cmds[i].pid, &cmds[i].e_status, 0);
+					// TODO: wait failed
+				}
+
+				// print exit statuses - We can assume wait is last option specified
+				for (int i = 0; i < num_cmds; i++) {
+					if (WIFEXITED(cmds[i].e_status)) {
+						printf("%d %s", WEXITSTATUS(cmds[i].e_status), cmds[i].name);
+						for (int j = 0; j < cmds[i].num_args; j++) {
+							printf(" %s", cmds[i].argv[j]);
+						}
+						printf("\n");
+					}
+					else {
+						popt_err(cmds[i].name, NULL, "did not exit normally");
+					}
+				}
 				break;
 			
 
@@ -353,9 +404,6 @@ int main(int argc, char** argv)
 
 	} while (ret != -1);
 
-	
-	free(my_argv);
-	
 	exit(exit_status);
 }
 
