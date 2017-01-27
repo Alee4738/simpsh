@@ -136,7 +136,7 @@ fi
 echo ""
 echo "---Test case $testnum: --abort works"
 ret=$(mktemp)
-$(./simpsh --rdonly in1 --abort --wronly out1) > $ret 2>&1
+echo -e "$(./simpsh --rdonly in1 --abort --wronly out1)" > $ret
 grep egmentation $ret
 if [ $? -ne 1 ]; then \
 	echo "---Test case $testnum failed"
@@ -164,8 +164,8 @@ fi
 echo ""
 echo "---Test case $testnum: --ignore N works"
 tmp=$(mktemp)
-$(./simpsh --rdonly in1 --catch 11 --ignore 11 --abort --wronly out1) > $ret 2>&1
-grep egmentation $ret
+echo -e "$(./simpsh --rdonly in1 --catch 11 --ignore 11 --abort --wronly out1)" > $tmp
+grep egmentation $tmp
 if [ $? -ne 1 ]; then \
 	echo "---Test case $testnum failed"
 else
@@ -178,8 +178,8 @@ fi
 echo ""
 echo "---Test case $testnum: --default N works"
 tmp=$(mktemp)
-$(./simpsh --rdonly in1 --catch 11 --default 11 --abort --wronly out1) > $ret 2>&1
-grep egmentation $ret
+echo -e "$(./simpsh --rdonly in1 --catch 11 --default 11 --abort --wronly out1)" > $tmp
+grep egmentation $tmp
 if [ $? -ne 1 ]; then \
 	echo "---Test case $testnum failed"
 else
@@ -205,7 +205,7 @@ else
 	echo "---Test case $testnum passed"
 	(( passed++ ))
 fi
-rm $tmp
+rm $tmp $t1 $t2 $t3
 
 echo -e "-------------------------------\n\n\n" 
 
@@ -224,5 +224,5 @@ echo -e "-------------------------------\n\n\n"
 
 echo "-------------------------------" 
 echo "Passed $passed tests out of $testnum"
-# rm -f $files
+rm -f $files
 

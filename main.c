@@ -294,6 +294,7 @@ int main(int argc, char** argv)
 					// Execute command
 					execvp(cmds[num_cmds].argv[0], cmds[num_cmds].argv);
 					// TODO: execvp failed
+					_exit(1);
 				}
 				else { // command was properly executed
 					cmds[num_cmds].pid = forker;
@@ -303,9 +304,16 @@ int main(int argc, char** argv)
 				break;
 			
 			case WAIT:
-				for (int i = 0; i < num_cmds; i++) {
-					waitpid(cmds[i].pid, &cmds[i].e_status, WNOHANG);
-					// TODO: wait failed
+				;
+				int i = 0;
+				int num_passed = 0;
+				while (num_passed < num_cmds) {
+					if (waitpid(cmds[i].pid, &cmds[i].e_status, WNOHANG) == 0) {
+						// TODO: wait failed
+					}
+					else {
+						num_passed++;
+					}
 					
 				}
 				
@@ -431,6 +439,19 @@ int main(int argc, char** argv)
 		}
 
 	} while (ret != -1);
+
+
+	// FREEDOM
+	for (int i = 0; i < num_cmds; i++)
+	{
+		for (int j = 0; j < cmds[i].num_args; j++)
+		{
+			free(cmds[i].argv[j]);
+		}
+		free(cmds[i].argv);
+		free(cmds[i].name);
+	}
+	free(cmds);
 
 	exit(exit_status);
 }
