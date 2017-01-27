@@ -209,7 +209,7 @@ int main(int argc, char** argv)
 				// errchk: doesn't have even a command 
 				if (num_args == 0) {
 					// Lots of init; should prob skip reading this
-					int len = strlen(optarg) + strlen(argv[optind]) + strlen(optind+1);
+					int len = strlen(optarg) + strlen(argv[optind]) + strlen(argv[optind+1]);
 					char* tmp = malloc((len+2+1)*sizeof(char)); // 2 spaces, 1 null
 					tmp = strcat(tmp, optarg);
 					tmp = strcat(tmp, argv[optind]);
@@ -254,7 +254,7 @@ int main(int argc, char** argv)
 					{
 						printf("%s ", cmds[num_cmds].argv[i]);
 					}
-					printf("%s\n", cmds[num_cmds].argv[i]);
+					printf("%s\n", cmds[num_cmds].argv[num_args-1]);
 				}
 
 
@@ -290,14 +290,14 @@ int main(int argc, char** argv)
 			
 			case WAIT:
 				for (int i = 0; i < num_args; i++) {
-					wait(cmds[i].pid, &cmds[i].e_status, 0);
+					waitpid(cmds[i].pid, &cmds[i].e_status, 0);
 					// TODO: wait failed
 				}
 
 				// print exit statuses - We can assume wait is last option specified
 				for (int i = 0; i < num_cmds; i++) {
 					if (WIFEXITED(cmds[i].e_status)) {
-						printf("%d %s", WEXITSTATUS(cmds[i].e_status), cmds[i].name);
+						printf("%d", WEXITSTATUS(cmds[i].e_status), cmds[i].name);
 						for (int j = 0; j < cmds[i].num_args; j++) {
 							printf(" %s", cmds[i].argv[j]);
 						}
