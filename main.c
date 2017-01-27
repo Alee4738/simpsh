@@ -308,13 +308,13 @@ int main(int argc, char** argv)
 				int i = 0;
 				int num_passed = 0;
 				while (num_passed < num_cmds) {
-					if (waitpid(cmds[i].pid, &cmds[i].e_status, WNOHANG) == 0) {
+					if (waitpid(cmds[i%num_cmds].pid, &cmds[i%num_cmds].e_status, WNOHANG) == 0) {
 						// TODO: wait failed
 					}
 					else {
 						num_passed++;
 					}
-					
+					i++;
 				}
 				
 				int max_exit;
