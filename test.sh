@@ -36,11 +36,13 @@ fi
 # Test Case: Unreadable file, should say something like "Skipping"
 (( testnum++ ))
 echo ""
-echo "---Test case $testnum: Unreadable file, should say \"Skipping\" (check manually)"
+echo "---Test case $testnum: Unreadable file, should say \"Skipping\""
 touch in2; chmod ugo-r in2
-./simpsh --rdonly in2
+./simpsh --rdonly in2 
 ret=$?
-if [ $ret -ne 1 ]; then \
+tmp=$(mktemp)
+echo -e $(./simpsh --rdonly in2) > $tmp; grep Skipping $tmp
+if [ $? -ne 1 ] || [ $ret -ne 1 ]; then \
     echo "---Test case $testnum failed"
 else
     echo "---Test case $testnum passed"
@@ -185,8 +187,25 @@ else
 	(( passed++ ))
 fi
 
-# TODO Test Case: Spec's example shell script works, outputs exit statuses
-
+# Test Case: Spec's example shell script works, outputs exit statuses
+(( testnum++ ))
+echo ""
+echo "---Test case $testnum: Spec's example script works, outputs exit statuses"
+tmp=tmp; t1=t1; t2=t2; t3=t3
+echo "0 sort" > $t1; echo "0 cat err2 - " > $t2; echo "0 tr A-Z a-z" > $t3
+echo -e "$(./simpsh --rdonly in1 --pipe --pipe --creat --trunc --wronly out1 --creat --append --wronly err1 --command 3 5 6 tr A-Z a-z --command 0 2 6 sort --command 1 4 6 cat err2 - --wait)" > $tmp
+grep $t1 $tmp; r1=$?
+grep $t2 $tmp; r2=$?
+grep $t3 $tmp; r3=$?
+if [ $r1 -ne 1 ] \
+|| [ $r2 -ne 1 ] \
+|| [ $r3 -ne 1 ]; then \
+	echo "---Test case $testnum failed"
+else
+	echo "---Test case $testnum passed"
+	(( passed++ ))
+fi
+rm $tmp
 
 echo -e "-------------------------------\n\n\n" 
 

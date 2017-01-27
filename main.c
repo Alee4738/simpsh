@@ -127,10 +127,10 @@ int main(int argc, char** argv)
 	do 
 	{
 		// fds dynamically resizable
-		if (num_files >= fds_limit) {
-			fds = realloc(fds, 2*fds_limit*sizeof(int));
+		if (num_files >= fds_limit-1) { // -1 bc pipe adds 2 fds at once
+			fds = realloc(fds, 2*num_files*sizeof(int));
 			// TODO: realloc failed
-			fds_limit *= 2;
+			fds_limit = 2*num_files;
 		}
 
 		
@@ -180,7 +180,21 @@ int main(int argc, char** argv)
 				else { num_files++;	}
 				break;
 
-			case PIPE: // TODO
+			case PIPE:
+				if (verbose_on) {
+					printf("%s\n", argv[optind-1]); 
+				}
+				
+				int pipefd[2];
+				if (pipe(pipefd) == -1) { // open 
+					popt_err(argv[optind-1], NULL, "pipe could not be opened");
+					break;
+				}
+				else { 
+					fds[num_files] = pipefd[0];
+					fds[num_files+1] = pipefd[1];
+					num_files += 2; 
+				}
 				break;
 
 
@@ -289,24 +303,38 @@ int main(int argc, char** argv)
 				break;
 			
 			case WAIT:
-				for (int i = 0; i < num_args; i++) {
-					waitpid(cmds[i].pid, &cmds[i].e_status, 0);
+				for (int i = 0; i < num_cmds; i++) {
+					waitpid(cmds[i].pid, &cmds[i].e_status, WNOHANG);
 					// TODO: wait failed
+					
 				}
-
+				
+				int max_exit;
 				// print exit statuses - We can assume wait is last option specified
 				for (int i = 0; i < num_cmds; i++) {
 					if (WIFEXITED(cmds[i].e_status)) {
+						int e_status = WEXITSTATUS(cmds[i].e_status);
+						if (i == 0) {
+							max_exit = e_status;
+						}
+
+						// Actually print
 						printf("%d", WEXITSTATUS(cmds[i].e_status), cmds[i].name);
 						for (int j = 0; j < cmds[i].num_args; j++) {
 							printf(" %s", cmds[i].argv[j]);
 						}
 						printf("\n");
+
+						// Also record into exit_status
+						if (e_status > max_exit) {
+							max_exit = WEXITSTATUS(cmds[i].e_status);
+						}
 					}
 					else {
 						popt_err(cmds[i].name, NULL, "did not exit normally");
 					}
 				}
+				exit_status = max_exit;
 				break;
 			
 
