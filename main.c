@@ -15,6 +15,7 @@
 #include <fcntl.h>
 #include <stdbool.h>
 #include <string.h>
+#include <sys/resource.h>
 
 const int FD_TABLE_START = 10; // start fd_table size
 const int STD_BUFF_START = 10; // standard start size of generic dyn. array
@@ -105,9 +106,15 @@ int main(int argc, char** argv)
 	// For getopt_long
 	int ret;
 	opterr = 0; // do not print default error msg
+	int option_index = 1; // index of the string in argv that contains the current option
 
 	// For --verbose
 	bool verbose_on = false;
+	bool profile_on = false;
+
+	// For --profile
+	struct rusage start_usage, end_usage;
+	struct rusage cstart_usage, cend_usage;
 
 	// For creating files (rdonly, wronly, rdwr, pipe)
 	int* fds = malloc(FD_TABLE_START*sizeof(int));
@@ -133,6 +140,9 @@ int main(int argc, char** argv)
 			fds_limit = 2*num_files;
 		}
 
+		// For --profile
+		int re = getrusage(RUSAGE_SELF, &start_usage);
+		// TODO: errchk: getrusage failed
 		
 		ret = getopt_long(argc, argv, "", long_options, NULL);
 		switch (ret)
@@ -202,6 +212,10 @@ int main(int argc, char** argv)
 			// 3. Subcommand options
 			//
 			case COMMAND:
+				// for --profile
+				int re = getrusage(RUSAGE_CHILDREN, &cstart_usage);
+				// TODO: getrusage failed
+
 				// Scan in file numbers, TODO: check not null, they're numbers 
 				// Process all strings related to cmd (i o e cmd args)
 				sscanf(optarg, "%d", &in);
@@ -304,6 +318,10 @@ int main(int argc, char** argv)
 				break;
 			
 			case WAIT:
+				if (verbose_on) {
+					printf("%s\n", argv[optind-1]); 
+				}
+
 				// Close all file descriptors - we can assume wait is the last option
 				for (int i = 0; i < num_files; i++) {
 					if (fds[i] != -1) {
@@ -318,81 +336,93 @@ int main(int argc, char** argv)
 						// TODO: wait failed
 					}
 					else {
+						if (profile_on) {
+							int r = getrusage(RUSAGE_SELF, &cend_usage);
+							printf("Time used by %s: %ld.%06lds (user) | %ld.%06lds (system)\n", 
+								cmds[i].name,
+								cend_usage.ru_utime.tv_sec	- cstart_usage.ru_utime.tv_sec,
+								cend_usage.ru_utime.tv_usec	- cstart_usage.ru_utime.tv_usec,
+								cend_usage.ru_stime.tv_sec	- cstart_usage.ru_stime.tv_sec,
+								cend_usage.ru_stime.tv_usec	- cstart_usage.ru_stime.tv_usec);
+						}
 						num_passed++;
 					}
 					i++;
 				}
-				
-				int max_exit;
-				// print exit statuses - We can assume wait is last option specified
-				for (int i = 0; i < num_cmds; i++) {
-					if (WIFEXITED(cmds[i].e_status)) {
-						int e_status = WEXITSTATUS(cmds[i].e_status);
-						if (i == 0) {
-							max_exit = e_status;
+						
+						int max_exit;
+						// print exit statuses - We can assume wait is last option specified
+						for (int i = 0; i < num_cmds; i++) {
+							if (WIFEXITED(cmds[i].e_status)) {
+								int e_status = WEXITSTATUS(cmds[i].e_status);
+								if (i == 0) {
+									max_exit = e_status;
+								}
+
+								// Actually print
+								printf("%d", WEXITSTATUS(cmds[i].e_status), cmds[i].name);
+								for (int j = 0; j < cmds[i].num_args; j++) {
+									printf(" %s", cmds[i].argv[j]);
+								}
+								printf("\n");
+
+								// Also record into exit_status
+								if (e_status > max_exit) {
+									max_exit = WEXITSTATUS(cmds[i].e_status);
+								}
+							}
+							else {
+								popt_err(cmds[i].name, NULL, "did not exit normally");
+							}
+						}
+						exit_status = max_exit;
+						break;
+					
+
+					// 
+					// 4. Misc. Options
+					//
+					case CLOSE:
+						// errchk: missing operand
+						if (pno_operand(argv)) { break; }
+
+						if (verbose_on) {
+							printf("%s %s\n", argv[optind-2], optarg); 
 						}
 
-						// Actually print
-						printf("%d", WEXITSTATUS(cmds[i].e_status), cmds[i].name);
-						for (int j = 0; j < cmds[i].num_args; j++) {
-							printf(" %s", cmds[i].argv[j]);
+						// More error checking, closing is easy
+						ret = atoi(optarg); // Note: atoi returns 0 on fail to convert
+						if (ret >= num_files || ret < 0) { // Invalid file num
+							fprintf(stderr, "--close: Invalid file number %d\n", ret);
+							if (ret == -1) { // messes up while loop
+								ret = -2;
+							}
 						}
-						printf("\n");
-
-						// Also record into exit_status
-						if (e_status > max_exit) {
-							max_exit = WEXITSTATUS(cmds[i].e_status);
+						else if (optarg[0] < '0' || optarg[0] > '9') { // arg not a num
+							popt_err(argv[optind-2], argv[optind-1], "must be int");
 						}
-					}
-					else {
-						popt_err(cmds[i].name, NULL, "did not exit normally");
-					}
-				}
-				exit_status = max_exit;
-				break;
-			
-
-			// 
-			// 4. Misc. Options
-			//
-			case CLOSE:
-				// errchk: missing operand
-				if (pno_operand(argv)) { break; }
-
-				if (verbose_on) {
-					printf("%s %s\n", argv[optind-2], optarg); 
-				}
-
-				// More error checking, closing is easy
-				ret = atoi(optarg); // Note: atoi returns 0 on fail to convert
-				if (ret >= num_files || ret < 0) { // Invalid file num
-					fprintf(stderr, "--close: Invalid file number %d\n", ret);
-					if (ret == -1) { // messes up while loop
-						ret = -2;
-					}
-				}
-				else if (optarg[0] < '0' || optarg[0] > '9') { // arg not a num
-					popt_err(argv[optind-2], argv[optind-1], "must be int");
-				}
-				else if (fds[ret] == -1) { // Already closed fd
-					fprintf(stderr, "--close: Already closed file number %d\n", ret);
-				}
-				else { // valid - close it
-					close(fds[ret]);
-					fds[ret] = -1;
-					ret = -2; // hack for next step
-				}
-				if (ret != -2) {
-					if (!has_command && exit_status == 0) {
-						exit_status = 1;
-					}
-				}
-				break;
+						else if (fds[ret] == -1) { // Already closed fd
+							fprintf(stderr, "--close: Already closed file number %d\n", ret);
+						}
+						else { // valid - close it
+							close(fds[ret]);
+							fds[ret] = -1;
+							ret = -2; // hack for next step
+						}
+						if (ret != -2) {
+							if (!has_command && exit_status == 0) {
+								exit_status = 1;
+							}
+						}
+						break;
 
 			case VERBOSE: verbose_on = true; break;
 
-			case PROFILE: // TODO:
-				break;
+			case PROFILE: 
+				if (verbose_on) {
+					printf("%s\n", argv[optind-1]); 
+				}
+				profile_on = true; break;
 
 			case ABORT:
 				if (verbose_on) {
@@ -444,6 +474,17 @@ int main(int argc, char** argv)
 				break;
 		}
 
+		if (profile_on && ret != -1) {
+			int r = getrusage(RUSAGE_SELF, &end_usage);
+			printf("Time used by %s: %ld.%06lds (user) | %ld.%06lds (system)\n", 
+				argv[option_index],
+				end_usage.ru_utime.tv_sec	- start_usage.ru_utime.tv_sec, 
+				end_usage.ru_utime.tv_usec	- start_usage.ru_utime.tv_usec,
+				end_usage.ru_stime.tv_sec	- start_usage.ru_stime.tv_sec, 
+				end_usage.ru_stime.tv_usec	- start_usage.ru_stime.tv_usec);
+		}
+		option_index = optind;
+
 	} while (ret != -1);
 
 
@@ -458,6 +499,15 @@ int main(int argc, char** argv)
 		free(cmds[i].name);
 	}
 	free(cmds);
+
+
+	// for --profile
+	ret = getrusage(RUSAGE_SELF, &end_usage);
+	printf("Total time: %ld.%06lds (user) | %ld.%06lds (system)\n",
+		end_usage.ru_utime.tv_sec,
+		end_usage.ru_utime.tv_usec,
+		end_usage.ru_stime.tv_sec,
+		end_usage.ru_stime.tv_usec);
 
 	exit(exit_status);
 }
@@ -488,7 +538,7 @@ bool pno_operand(char** argv)
 		return true;
 	}
 	// at the end, no arg provided
-	else if (argv[optind] == NULL) {
+	else if (optarg == NULL && argv[optind] == NULL) {
 		popt_err(argv[optind-1], NULL, "missing operand");
 		return true;
 	}
