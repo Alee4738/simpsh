@@ -304,7 +304,13 @@ int main(int argc, char** argv)
 				break;
 			
 			case WAIT:
-				;
+				// Close all file descriptors - we can assume wait is the last option
+				for (int i = 0; i < num_files; i++) {
+					if (fds[i] != -1) {
+						close(fds[i]);
+					}
+				}
+	
 				int i = 0;
 				int num_passed = 0;
 				while (num_passed < num_cmds) {

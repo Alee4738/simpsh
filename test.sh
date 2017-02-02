@@ -128,9 +128,6 @@ else
 	(( passed++ ))
 fi
 
-# TODO Test Case: --wait works
-
-
 # Test Case: --abort works
 (( testnum++ ))
 echo ""
