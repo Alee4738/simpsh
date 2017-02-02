@@ -213,7 +213,7 @@ int main(int argc, char** argv)
 			//
 			case COMMAND:
 				// for --profile
-				int re = getrusage(RUSAGE_CHILDREN, &cstart_usage);
+				; int re = getrusage(RUSAGE_CHILDREN, &cstart_usage);
 				// TODO: getrusage failed
 
 				// Scan in file numbers, TODO: check not null, they're numbers 
@@ -332,13 +332,13 @@ int main(int argc, char** argv)
 				int i = 0;
 				int num_passed = 0;
 				while (num_passed < num_cmds) {
-					if (waitpid(cmds[i%num_cmds].pid, &cmds[i%num_cmds].e_status, WNOHANG) == 0) {
+					if (waitpid(cmds[i].pid, &cmds[i].e_status, WNOHANG) == 0) {
 						// TODO: wait failed
 					}
 					else {
 						if (profile_on) {
 							int r = getrusage(RUSAGE_SELF, &cend_usage);
-							printf("Time used by %s: %ld.%06lds (user) | %ld.%06lds (system)\n", 
+							printf("Time used by subcommand \"%s\": %ld.%06lds (user) | %ld.%06lds (system)\n", 
 								cmds[i].name,
 								cend_usage.ru_utime.tv_sec	- cstart_usage.ru_utime.tv_sec,
 								cend_usage.ru_utime.tv_usec	- cstart_usage.ru_utime.tv_usec,
@@ -348,6 +348,7 @@ int main(int argc, char** argv)
 						num_passed++;
 					}
 					i++;
+					i %= num_cmds;
 				}
 						
 						int max_exit;
