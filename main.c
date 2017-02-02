@@ -36,6 +36,7 @@ struct cmd
 {
 	pid_t pid;
 	int e_status;
+	bool finished;
 	char* name;
 	char** argv;
 	int num_args; // current num of args in argv
@@ -266,6 +267,7 @@ int main(int argc, char** argv)
 				cmds[num_cmds].argv = malloc((num_args+1)*sizeof(char*)); // TODO: free later; +1 means need NULL at end
 				// TODO: malloc failed
 				cmds[num_cmds].argv_size = num_args;
+				cmds[num_cmds].finished = false;
 
 				// Capture all arguments
 				// copy cmd's args into argv of cmds (including cmd)
@@ -335,6 +337,7 @@ int main(int argc, char** argv)
 					if (waitpid(cmds[i].pid, &cmds[i].e_status, WNOHANG) == 0) {
 						// TODO: wait failed
 					}
+					else if (cmds[i].finished == true) {}
 					else {
 						if (profile_on) {
 							int r = getrusage(RUSAGE_SELF, &cend_usage);
@@ -345,6 +348,7 @@ int main(int argc, char** argv)
 								cend_usage.ru_stime.tv_sec	- cstart_usage.ru_stime.tv_sec,
 								cend_usage.ru_stime.tv_usec	- cstart_usage.ru_stime.tv_usec);
 						}
+						cmds[i].finished = true;
 						num_passed++;
 					}
 					i++;
@@ -503,12 +507,14 @@ int main(int argc, char** argv)
 
 
 	// for --profile
-	ret = getrusage(RUSAGE_SELF, &end_usage);
-	printf("Total time: %ld.%06lds (user) | %ld.%06lds (system)\n",
-		end_usage.ru_utime.tv_sec,
-		end_usage.ru_utime.tv_usec,
-		end_usage.ru_stime.tv_sec,
-		end_usage.ru_stime.tv_usec);
+	if (profile_on) {
+		ret = getrusage(RUSAGE_SELF, &end_usage);
+		printf("Total time: %ld.%06lds (user) | %ld.%06lds (system)\n",
+			end_usage.ru_utime.tv_sec,
+			end_usage.ru_utime.tv_usec,
+			end_usage.ru_stime.tv_sec,
+			end_usage.ru_stime.tv_usec);
+	}
 
 	exit(exit_status);
 }
