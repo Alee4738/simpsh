@@ -427,7 +427,10 @@ int main(int argc, char** argv)
 				if (verbose_on) {
 					printf("%s\n", argv[optind-1]); 
 				}
-				profile_on = true; break;
+				profile_on = true; 
+				option_index = optind;
+				continue;
+				break;
 
 			case ABORT:
 				if (verbose_on) {
@@ -509,7 +512,7 @@ int main(int argc, char** argv)
 	// for --profile
 	if (profile_on) {
 		ret = getrusage(RUSAGE_SELF, &end_usage);
-		printf("Total time: %ld.%06lds (user) | %ld.%06lds (system)\n",
+		printf("Total time by simpsh: %ld.%06lds (user) | %ld.%06lds (system)\n",
 			end_usage.ru_utime.tv_sec,
 			end_usage.ru_utime.tv_usec,
 			end_usage.ru_stime.tv_sec,
