@@ -115,7 +115,7 @@ int main(int argc, char** argv)
 
 	// For --profile
 	struct rusage start_usage, end_usage;
-	struct rusage cstart_usage, cend_usage;
+	struct rusage c_usage;
 
 	// For creating files (rdonly, wronly, rdwr, pipe)
 	int* fds = malloc(FD_TABLE_START*sizeof(int));
@@ -131,6 +131,10 @@ int main(int argc, char** argv)
 	int num_cmds = 0;
 	cmds = malloc((STD_BUFF_START+1)*sizeof(struct cmd)); // TODO: free later
 
+	// For --profile
+	int re = getrusage(RUSAGE_SELF, &start_usage);
+	// TODO: errchk: getrusage failed
+	
 	// Parse the options
 	do 
 	{
@@ -141,10 +145,6 @@ int main(int argc, char** argv)
 			fds_limit = 2*num_files;
 		}
 
-		// For --profile
-		int re = getrusage(RUSAGE_SELF, &start_usage);
-		// TODO: errchk: getrusage failed
-		
 		ret = getopt_long(argc, argv, "", long_options, NULL);
 		switch (ret)
 		{
@@ -196,14 +196,14 @@ int main(int argc, char** argv)
 					printf("%s\n", argv[optind-1]); 
 				}
 				
-				int pipefd[2];
-				if (pipe(pipefd) == -1) { // open 
+				//int pipefd[2];
+				if (pipe(&(fds[num_files])) == -1) { // open 
 					popt_err(argv[optind-1], NULL, "pipe could not be opened");
 					break;
 				}
 				else { 
-					fds[num_files] = pipefd[0];
-					fds[num_files+1] = pipefd[1];
+					//fds[num_files] = pipefd[0];
+					//fds[num_files+1] = pipefd[1];
 					num_files += 2; 
 				}
 				break;
@@ -213,10 +213,6 @@ int main(int argc, char** argv)
 			// 3. Subcommand options
 			//
 			case COMMAND:
-				// for --profile
-				; int re = getrusage(RUSAGE_CHILDREN, &cstart_usage);
-				// TODO: getrusage failed
-
 				// Scan in file numbers, TODO: check not null, they're numbers 
 				// Process all strings related to cmd (i o e cmd args)
 				sscanf(optarg, "%d", &in);
@@ -302,10 +298,12 @@ int main(int argc, char** argv)
 					dup2(fds[err], 2);
 					// TODO: dup2 failed x 3
 					
+					
 					// Close all other fds created by simpsh
 					for (int i = 0; i < num_files; i++) {
 						close(fds[i]);
 					}
+					
 
 					// Execute command
 					execvp(cmds[num_cmds].argv[0], cmds[num_cmds].argv);
@@ -339,15 +337,6 @@ int main(int argc, char** argv)
 					}
 					else if (cmds[i].finished == true) {}
 					else {
-						if (profile_on) {
-							int r = getrusage(RUSAGE_SELF, &cend_usage);
-							printf("Time used by subcommand \"%s\": %ld.%06lds (user) | %ld.%06lds (system)\n", 
-								cmds[i].name,
-								cend_usage.ru_utime.tv_sec	- cstart_usage.ru_utime.tv_sec,
-								cend_usage.ru_utime.tv_usec	- cstart_usage.ru_utime.tv_usec,
-								cend_usage.ru_stime.tv_sec	- cstart_usage.ru_stime.tv_sec,
-								cend_usage.ru_stime.tv_usec	- cstart_usage.ru_stime.tv_usec);
-						}
 						cmds[i].finished = true;
 						num_passed++;
 					}
@@ -355,74 +344,71 @@ int main(int argc, char** argv)
 					i %= num_cmds;
 				}
 						
-						int max_exit;
-						// print exit statuses - We can assume wait is last option specified
-						for (int i = 0; i < num_cmds; i++) {
-							if (WIFEXITED(cmds[i].e_status)) {
-								int e_status = WEXITSTATUS(cmds[i].e_status);
-								if (i == 0) {
-									max_exit = e_status;
-								}
-
-								// Actually print
-								printf("%d", WEXITSTATUS(cmds[i].e_status), cmds[i].name);
-								for (int j = 0; j < cmds[i].num_args; j++) {
-									printf(" %s", cmds[i].argv[j]);
-								}
-								printf("\n");
-
-								// Also record into exit_status
-								if (e_status > max_exit) {
-									max_exit = WEXITSTATUS(cmds[i].e_status);
-								}
-							}
-							else {
-								popt_err(cmds[i].name, NULL, "did not exit normally");
-							}
+				int max_exit;
+				// print exit statuses - We can assume wait is last option specified
+				for (int i = 0; i < num_cmds; i++) {
+					if (WIFEXITED(cmds[i].e_status)) {
+						int e_status = WEXITSTATUS(cmds[i].e_status);
+						if (i == 0) {
+							max_exit = e_status;
 						}
-						exit_status = max_exit;
-						break;
+
+						// Actually print
+						printf("%d", WEXITSTATUS(cmds[i].e_status), cmds[i].name);
+						for (int j = 0; j < cmds[i].num_args; j++) {
+							printf(" %s", cmds[i].argv[j]);
+						}
+						printf("\n");
+
+						// Also record into exit_status
+						if (e_status > max_exit) {
+							max_exit = WEXITSTATUS(cmds[i].e_status);
+						}
+					}
+					else {
+						popt_err(cmds[i].name, NULL, "did not exit normally");
+					}
+				}
+				exit_status = max_exit;
+				break;
 					
 
-					// 
-					// 4. Misc. Options
-					//
-					case CLOSE:
-						// errchk: missing operand
-						if (pno_operand(argv)) { break; }
-
-						if (verbose_on) {
-							printf("%s %s\n", argv[optind-2], optarg); 
-						}
-
-						// More error checking, closing is easy
-						ret = atoi(optarg); // Note: atoi returns 0 on fail to convert
-						if (ret >= num_files || ret < 0) { // Invalid file num
-							fprintf(stderr, "--close: Invalid file number %d\n", ret);
-							if (ret == -1) { // messes up while loop
-								ret = -2;
-							}
-						}
-						else if (optarg[0] < '0' || optarg[0] > '9') { // arg not a num
-							popt_err(argv[optind-2], argv[optind-1], "must be int");
-						}
-						else if (fds[ret] == -1) { // Already closed fd
-							fprintf(stderr, "--close: Already closed file number %d\n", ret);
-						}
-						else { // valid - close it
-							close(fds[ret]);
-							fds[ret] = -1;
-							ret = -2; // hack for next step
-						}
-						if (ret != -2) {
-							if (!has_command && exit_status == 0) {
-								exit_status = 1;
-							}
-						}
-						break;
+			// 
+			// 4. Misc. Options
+			//
+			case CLOSE:
+				// errchk: missing operand
+				if (pno_operand(argv)) { break; }
+					if (verbose_on) {
+					printf("%s %s\n", argv[optind-2], optarg); 
+				}
+					// More error checking, closing is easy
+				ret = atoi(optarg); // Note: atoi returns 0 on fail to convert
+				if (ret >= num_files || ret < 0) { // Invalid file num
+					fprintf(stderr, "--close: Invalid file number %d\n", ret);
+					if (ret == -1) { // messes up while loop
+						ret = -2;
+					}
+				}
+				else if (optarg[0] < '0' || optarg[0] > '9') { // arg not a num
+					popt_err(argv[optind-2], argv[optind-1], "must be int");
+				}
+				else if (fds[ret] == -1) { // Already closed fd
+					fprintf(stderr, "--close: Already closed file number %d\n", ret);
+				}
+				else { // valid - close it
+					close(fds[ret]);
+					fds[ret] = -1;
+					ret = -2; // hack for next step
+				}
+				if (ret != -2) {
+					if (!has_command && exit_status == 0) {
+						exit_status = 1;
+					}
+				}
+				break;
 
 			case VERBOSE: verbose_on = true; break;
-
 			case PROFILE: 
 				if (verbose_on) {
 					printf("%s\n", argv[optind-1]); 
@@ -511,12 +497,20 @@ int main(int argc, char** argv)
 
 	// for --profile
 	if (profile_on) {
+		int r = getrusage(RUSAGE_CHILDREN, &c_usage);
+		printf("Total time used by children: %ld.%06lds (user) | %ld.%06lds (system)\n", 
+			c_usage.ru_utime.tv_sec,
+			c_usage.ru_utime.tv_usec,
+			c_usage.ru_stime.tv_sec,
+			c_usage.ru_stime.tv_usec);
+
 		ret = getrusage(RUSAGE_SELF, &end_usage);
-		printf("Total time by simpsh: %ld.%06lds (user) | %ld.%06lds (system)\n",
+		printf("Total time used by simpsh: %ld.%06lds (user) | %ld.%06lds (system)\n",
 			end_usage.ru_utime.tv_sec,
 			end_usage.ru_utime.tv_usec,
 			end_usage.ru_stime.tv_sec,
 			end_usage.ru_stime.tv_usec);
+		
 	}
 
 	exit(exit_status);

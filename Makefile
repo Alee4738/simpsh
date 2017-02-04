@@ -1,5 +1,5 @@
 # variables
-DELIVERABLES=main.c Makefile README test.sh
+DELIVERABLES=main.c Makefile README test.sh shell_times.pdf bash_test.bash dash_test.dash
 CC=gcc
 FLAGS=-g
 

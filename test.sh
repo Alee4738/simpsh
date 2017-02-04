@@ -108,9 +108,6 @@ else
 	(( passed++ ))
 fi
 
-# TODO Test Case: --pipe works
-
-
 # Test Case: --close N works
 (( testnum++ ))
 echo ""
@@ -206,20 +203,43 @@ rm $tmp $t1 $t2 $t3
 
 echo -e "-------------------------------\n\n\n" 
 
-# Test Case:
 
-# Test Case:
-
-# Test Case:
-
-# Test Case:
-
-# Test Case:
-
-# Test Case:
+echo "Passed $passed tests out of $testnum"
 
 
 echo "-------------------------------" 
-echo "Passed $passed tests out of $testnum"
+echo "LAB 1C TEST CASES (--profile) - Tested against bash and dash"
+echo "-------------------------------" 
+# Reminder: needs to be nontrivial
+# Initialization: make sure files are accessible
+files="$files err4 err5 err6 err7 err8 out4 out5 out6"
+for i in $files
+do
+	touch $i; chmod ugo+rw $i
+done
+
+# this uses a0.txt. If you don't have it, get it
+if [ ! -e a0.txt ]; then \
+	wget http://web.cs.ucla.edu/~zbu/a0.txt
+fi
+chmod ugo+r a0.txt
+
+# Test Case 1: ( cat < a0.txt | sort | grep French > out4) 2>> err4
+echo "---Test case $testnum: non-trivial test 1"
+./simpsh --profile --rdonly a0.txt --pipe --pipe --wronly out4 --wronly err4 --command 0 2 6 cat --command 1 4 6 sort --command 3 5 6 grep French --wait
+rm out4; touch out4; chmod ugo+rw out4
+
+# Test Case 2: (echo -e "Capitalizing everything...\n\n" < in2 | cat - a0.txt | tr a-z A-Z > out5) 2>> err5
+echo ""
+echo "---Test case $testnum: non-trivial test 2"
+./simpsh --profile --rdonly a0.txt --pipe --pipe --creat --trunc --wronly out5 --creat --append --wronly err5 --command 0 2 6 echo -e "Capitalizing everything...\n\n" --command 1 4 6 cat - a0.txt --command 3 5 6 tr a-z A-Z --wait
+rm out5; touch out5; chmod ugo+rw out5
+
+# Test Case 3: grep business < a0.txt 2> err6 | sort 2> err7 | wc > out6 2>> err8
+echo ""
+echo "---Test case $testnum: non-trivial test 3"
+./simpsh --profile --rdonly a0.txt --creat --trunc --wronly err6 --pipe --creat --trunc --wronly err7 --pipe --creat --trunc --wronly out6 --creat --append --wronly err8 --command 0 3 1 grep business --command 2 6 4 sort --command 5 7 8 wc --wait
+
 rm -f $files
+
 
