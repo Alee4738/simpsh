@@ -1,0 +1,31 @@
+CS 111 lab1 - simpleton shell
+Andrew Lee
+
+/////////////////////////////////////////////
+// Report - Testing against existing shells
+/////////////////////////////////////////////
+Three test cases were run on 3 different shells (9 runs total).
+Here are the test cases:
+1. ( cat < a0.txt | sort | grep French > out4) 2>> err4
+2. (echo -e "Capitalizing everything...\n\n" < in2 | cat - a0.txt | tr a-z A-Z > out5) 2>> err5
+3. grep business < a0.txt 2> err6 | sort 2> err7 | wc > out6 2>> err8 
+
+Raw Data:
+	The raw data is located in the file shell_times.pdf
+
+Analysis of Data
+	Bash and dash seemed to be about the same speed.
+	According to my data (shell_times.pdf), simpsh did a lot worse than bash and dash. Looking at the details section, the work that the children processes do for simpsh is comparable to the work done by those from bash and dash, but the work done by the parent process is significantly different. I think it is because once bash and dash spawn their child processes, they go to sleep and wait for a signal, therefore saving resources and system/user time. simpsh, however, does not do this; instead, it simply waits for the child processes to finish, taking up user and system time.
+
+Conclusions
+	Existing shells are quite fast. If I am able to make simpsh sleep and wait for a signal for when the child processes are done, I will be able to reduce the time significantly.
+
+// End of Report
+
+Limitations
+	Does not check --command input arguments
+	Does not check rare cases (malloc failing, dup2 failing, etc.)
+	Without --wait, there is a race condition between the child and the parent
+
+Features
+	Skips options that have missing operands or whose files cannot be opened
