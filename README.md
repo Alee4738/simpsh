@@ -1,4 +1,4 @@
-# CS 111 lab1 - simpleton shell
+# Operating Systems lab1 - simpsh
 Andrew Lee
 
 # Introduction
@@ -24,7 +24,7 @@ This corresponds to the following command in bash:
 
 ```
 
-# Description, from [assignment spec](http://web.cs.ucla.edu/classes/winter17/cs111/assign/lab1.html)
+# Description
 ## File Flags, correspond to oflag value for [open](http://pubs.opengroup.org/onlinepubs/9699919799/functions/open.html)  
 * --append 
   - O_APPEND  
